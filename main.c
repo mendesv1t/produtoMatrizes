@@ -3,6 +3,8 @@ int main(void) {
 
 /*toDo:
      * - criar método sequencial de produto de matrizes (check)
+     * - ler matrizes A e B de um arquivo
+     * - escrever a matriz C em um arquivo
      * - criar tarefa das threads
      * - criar threads
      * - estimar tempo se fosse realizado com um código sequencial para entradas muito grandes e extrair a matriz de saída
