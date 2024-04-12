@@ -23,30 +23,37 @@ float * produtoMatrizesSequencial(float * matrizA, float * matrizB, int colunasA
             for (int k = 0; k < colunasA; k++) {
                 matrizC[i * colunasB + j] += matrizA[i * colunasA + k] * matrizB[k * colunasB + j];
             }
-            //printf("%f ", matrizC[i * colunasB + j]);
         }
-        printf("\n");
+    }
+    return matrizC;
+}
+float * produtoMatrizes(float * matrizA, float * matrizB, int colunasA, int linhasA, int colunasB, int linhasB) {
+
+    if (colunasA != linhasB) {
+        printf("Erro: número de colunas da matriz A não é igual ao número de linhas da matriz B.");
+        return NULL;
+    }
+
+    matrizC = (float *) malloc(sizeof(float) * linhasA * colunasB);
+    if (matrizC == NULL) {
+        printf("Erro ao alocar memória para a matriz C.");
+        return NULL;
+    }
+
+    for (int i = 0; i < linhasA; i++) {
+
+        for (int j = 0; j < colunasB; j++) {
+            matrizC[i * colunasB + j] = 0;
+            for (int k = 0; k < colunasA; k++) {
+                matrizC[i * colunasB + j] += matrizA[i * colunasA + k] *matrizB[k * colunasB + j];
+            }
+        }
     }
     return matrizC;
 }
 
-void processaLoteResultante(int i,float * matrizA, float * matrizB, int colunasA, int colunasB, int linhasA) {
-    for (int j = 0; j < colunasB; j++) {
-        matrizC[i * colunasB + j] = 0;
-        for (int k = 0; k < colunasA; k++) {
-            matrizC[i * colunasB + j] += matrizA[i * linhasA + k] * matrizB[k * colunasB + j];
-        }
-        printf("%f ", matrizC[i * colunasB + j]);
-    }
-}
 
-
-void * tarefa() {
-    return NULL;
-}
-
-
-void criarThreads(int M, int N) {
+void criarThreads(int M) {
 
     // recuperando o id das threads no sistema:
     pthread_t tid_sistema[M];
@@ -57,10 +64,10 @@ void criarThreads(int M, int N) {
 
         threads[i] = i;
 
-        if (pthread_create(&tid_sistema[i], NULL, tarefa(), NULL)) {
-            printf("--ERRO: pthread_create()\n");
-            exit(-1);
-        }
+      //  if (pthread_create(&tid_sistema[i], NULL, tarefa(), NULL)) {
+        //    printf("--ERRO: pthread_create()\n");
+          //  exit(-1);
+       // }
     }
 
     for (int i = 1; i <= M; i++) {
@@ -101,8 +108,8 @@ int main(int argc, char*argv[]) {
 
 /*toDo:
      * - criar método sequencial de produto de matrizes (feito)
-     * - ler matrizes A e B de um arquivo
-     * - escrever a matriz C em um arquivo
+     * - ler matrizes A e B de um arquivo (feito)
+     * - escrever a matriz C em um arquivo (feito)
      * - criar tarefa das threads
      * - criar threads
      * - estimar tempo se fosse realizado com um código sequencial para entradas muito grandes e extrair a matriz de saída
@@ -184,29 +191,12 @@ int main(int argc, char*argv[]) {
         return 4;
     }
 
-    float * matrizC = produtoMatrizesSequencial(matrizA, matrizB, colunasA, linhasA, colunasB, linhasB);
+    //float * matrizC = produtoMatrizesSequencial(matrizA, matrizB, colunasA, linhasA, colunasB, linhasB);
 
-    //imprime a matriz na saida padrao
-    printf("------------------- Matriz A -------------------\n");
-    for(int i=0; i<linhasA; i++) {
-        for(int j=0; j<colunasA; j++)
-            fprintf(stdout, "%.6f ", matrizA[i*colunasB+j]);
-        fprintf(stdout, "\n");
-    }
-    //imprime a matriz na saida padrao
-    printf("------------------- Matriz B -------------------\n");
-    for(int i=0; i<linhasB; i++) {
-        for(int j=0; j<colunasB; j++)
-            fprintf(stdout, "%.6f ", matrizB[i*colunasB+j]);
-        fprintf(stdout, "\n");
-    }
-    //imprime a matriz na saida padrao
-    printf("------------------- Matriz C -------------------\n");
-    for(int i=0; i<linhasA; i++) {
-        for(int j=0; j<colunasB; j++)
-            fprintf(stdout, "%.6f ", matrizC[i*colunasB+j]);
-        fprintf(stdout, "\n");
-    }
+    int M;
+    printf("Entre com o número de threads desejado: ");
+    scanf("%d", & M);
+
 
     escreveMatrizArquivo(matrizC,"matrizC", linhasA, colunasB);
 
