@@ -16,7 +16,7 @@ typedef struct {
     int linhasMatriz;
     int colunasMatriz;
     int qtdThreads;
-} DadosCsv;
+} Experimento;
 
 // estrutura auxiliar para leitura e montagem de matrizes:
 typedef struct {
@@ -25,35 +25,34 @@ typedef struct {
     int linhas;
 } Matriz;
 
-// estrutura auxiliar para enviar dados as threads:
+// estrutura auxiliar para enviar experimento as threads:
 typedef struct {
     Matriz matrizA;
     Matriz matrizB;
+    int lote;
+    int M;
     int id;
 } tArgs;
 
+//método para extrair resultados para análise em um csv, dada uma lista de experimentos
+void extrairCsv(Experimento * experimentos[], int qtd) {
 
-
-//método para extrair resultados para análise em um csv
-// ideia inicial: um array de DadosCsv com vários experimentos a fim de calcular no app externo de planilhas
-// nisso, pensei em receber um array, iterar sobre ele e cada linha ir adicionando os dados.
-void extrairCsv(DadosCsv dados) {
-    FILE *resultados;
+    FILE * resultados;
     resultados = fopen("resultados.csv", "w+");
 
     if (!resultados) {
         fprintf(stderr, "Erro ao criar arquivo csv\n");
         return;
     }
-
     // fixa header do csv:
-    fprintf(resultados, "aceleracao;eficiencia;tempoExecucao;linhasMatriz;colunasMatriz;qtdThreads\n");
-
-    //escreve os dados resultantes do experimento em uma linha:
-    fprintf(resultados,"%f;%f;%f;%d;%d;%d\n", dados.aceleracao, dados.eficiencia, dados.tempoExecucao, dados.linhasMatriz, dados.colunasMatriz, dados.qtdThreads);
+    fprintf(resultados, "modo;aceleracao;eficiencia;tempoExecucao;linhasMatriz;colunasMatriz;qtdThreads\n");
+    for (int i = 0; i<qtd; i++) {
+        //escreve os experimento resultantes do experimento em uma linha:
+        fprintf(resultados,"%s;%f;%f;%f;%d;%d;%d\n", experimentos[i]->sequencial == 0 ? "sequencial" : "concorrente", experimentos[i]->aceleracao, experimentos[i]->eficiencia,
+                                                     experimentos[i]->tempoExecucao, experimentos[i]->linhasMatriz, experimentos[i]->colunasMatriz, experimentos[i]->qtdThreads);
+    }
     fclose(resultados);
 }
-
 
 // método que realiza o produto de forma sequencial de matrizes de NxM dimensões:
 float * produtoMatrizes(Matriz * matrizA, Matriz * matrizB) {
@@ -75,10 +74,10 @@ float * produtoMatrizes(Matriz * matrizA, Matriz * matrizB) {
 }
 
 // com base nos códigos fornecidos, extraí a logica de escrever matriz em um arquivo para um método:
-void escreveMatrizArquivo( float * matriz,char * nome, int linhas, int colunas) {
+void escreveMatrizArquivo( Matriz * matriz, char * nome) {
 
     size_t ret;
-    long long int tam = linhas*colunas;
+    long long int tam = matriz->linhas*matriz->colunas;
 
     //abre o arquivo para escrita binaria
     FILE * matrizArquivo = fopen(nome, "wb");
@@ -87,11 +86,11 @@ void escreveMatrizArquivo( float * matriz,char * nome, int linhas, int colunas) 
         return;
     }
     //escreve numero de linhas e de colunas
-    ret = fwrite(&linhas, sizeof(int), 1, matrizArquivo);
-    ret = fwrite(&colunas, sizeof(int), 1, matrizArquivo);
+    ret = fwrite(&matriz->linhas, sizeof(int), 1, matrizArquivo);
+    ret = fwrite(&matriz->colunas, sizeof(int), 1, matrizArquivo);
 
     //escreve os elementos da matriz
-    ret = fwrite(matriz, sizeof(float), tam, matrizArquivo);
+    ret = fwrite(matriz->matriz, sizeof(float), tam, matrizArquivo);
 
     if(ret < tam) {
         fprintf(stderr, "Erro de escrita no  arquivo\n");
@@ -102,8 +101,9 @@ void escreveMatrizArquivo( float * matriz,char * nome, int linhas, int colunas) 
     fclose(matrizArquivo);
 }
 
-// método que lê um arquivo e devolve uma estrutura que contém uma matriz e dados relevantes sobre ela:
+// método que lê um arquivo e devolve uma estrutura que contém uma matriz e experimento relevantes sobre ela:
 Matriz leMatrizArquivo(FILE * file) {
+
     int linhas;
     int colunas;
     int dimensao;
@@ -117,7 +117,6 @@ Matriz leMatrizArquivo(FILE * file) {
 
     dimensao = fread(&linhas, sizeof(int), 1, file);
     dimensao = fread(&colunas, sizeof(int), 1, file);
-
     tamanho = linhas*colunas;
 
     if(!dimensao) {
@@ -146,34 +145,39 @@ Matriz leMatrizArquivo(FILE * file) {
     return matriz;
 }
 
-
 // ------------------------- THREADS (criação de threads & tarefa das threads) -------------------------
-
 
 // tarefa designada as threads:
 void * tarefa(void * arg) {
 
     tArgs * args = (tArgs *) arg;
 
+    int id = args->id;
+    int lote = args->lote;
+    int M = args->M;
+    int inicio = id*lote;
+    int fim = (id + 1)*lote;
+
+    // para garantir casos ímpares chegarem ao fim de todas as linhas:
+    if ((id + 1) == M) {
+        fim = args->matrizA.linhas;
+    }
+
     if (args->matrizA.colunas != args->matrizB.linhas) {
         printf("Erro: número de colunas da matriz A não é igual ao número de linhas da matriz B.");
         return NULL;
     }
 
-    int linhasA = args->matrizA.linhas;
-    int colunasA = args->matrizA.colunas;
-    int colunasB = args->matrizB.colunas;
-
-    for (int i = 0; i < linhasA; i++) {
-        // linhas para threads
-        for (int j = 0; j < colunasB; j++) {
-            matrizC[i * colunasB + j] = 0;
-            for (int k = 0; k < colunasA; k++) {
-                matrizC[i * colunasB + j] += args->matrizA.matriz[i * colunasA + k] * args->matrizB.matriz[k * colunasB + j];
+    for (int i = inicio; i < fim; i++) {
+        for (int j = 0; j < args->matrizB.colunas; j++) {
+            matrizC[i * args->matrizB.colunas + j] = 0;
+            for (int k = 0; k < args->matrizA.colunas; k++) {
+                matrizC[i * args->matrizB.colunas + j] += args->matrizA.matriz[i * args->matrizA.colunas + k] * args->matrizB.matriz[k * args->matrizB.colunas + j];
             }
         }
     }
-    return matrizC;
+    free(arg);
+    pthread_exit(NULL);
 }
 
 // criação de threads:
@@ -183,21 +187,23 @@ void criarThreads(Matriz matrizA, Matriz matrizB, int M) {
     pthread_t tid_sistema[M];
     int threads[M];
 
-    tArgs * args = malloc(sizeof (tArgs));
-    args->matrizA = matrizA;
-    args->matrizB = matrizB;
-
     // criando M threads:
-    for (int i = 0; i <= M; i++) {
+    for (int i = 0; i < M; i++) {
+        tArgs * args = malloc(sizeof (tArgs));
         threads[i] = i;
         args->id = i;
+        args->matrizA = matrizA;
+        args->matrizB = matrizB;
+        args->M = M;
+        args->lote = matrizA.linhas/M;
       if (pthread_create(&tid_sistema[i], NULL, tarefa, args)) {
         printf("--ERRO: pthread_create()\n");
         exit(-1);
        }
+
     }
 
-    for (int i = 1; i <= M; i++) {
+    for (int i = 0; i <= M; i++) {
         pthread_join(tid_sistema[i],NULL);
     }
 
@@ -207,31 +213,16 @@ void criarThreads(Matriz matrizA, Matriz matrizB, int M) {
 
 int main(int argc, char*argv[]) {
 
-/*toDo:
-     * - criar método sequencial de produto de matrizes (feito)
-     * - ler matrizes A e B de um arquivo (feito)
-     * - escrever a matriz C em um arquivo (feito)
-     * - criar tarefa das threads
-     * - criar threads
-     * - estimar tempo se fosse realizado com um código sequencial para entradas muito grandes e extrair a matriz de saída
-     * - estimar tempo de concorrência, extrair a matriz resultado da saída.
-     * - realizar diff <matrizSequ> <matrizConc>, e verificar se são iguais.
-     * - Para as entradas de dimensoes:  500X500, 1000X1000 e 2000X2000. Repetir 3 vezes cada e realizar a média de tempo.
-     * - estimar aceleração e eficiência com 1, 2, 4 e 8 threads
-     */
-
     //declara estruturas para as matrizes de entrada:
     Matriz * matrizA = malloc(sizeof(Matriz));
     Matriz * matrizB = malloc(sizeof(Matriz));
-
 
     // arquivos de entrada das matrizes:
     FILE * arquivoMatrizA;
     FILE * arquivoMatrizB;
 
-
     //recebe os argumentos de entrada
-    if(argc < 3) {
+    if(argc < 2) {
         fprintf(stderr, "Digite: ./main <ArquivoMatrizA> <ArquivoMatrizB>\n");
         return 1;
     }
@@ -240,8 +231,7 @@ int main(int argc, char*argv[]) {
     arquivoMatrizA = fopen(argv[1], "rb");
     arquivoMatrizB = fopen(argv[2], "rb");
 
-
-    // retorna ponteiros que apontam para os dados lidos das matrizes de entrada
+    // retorna ponteiros que apontam para as matrizes lidas nos arquivos de entrada
     * matrizA = leMatrizArquivo(arquivoMatrizA);
     * matrizB = leMatrizArquivo(arquivoMatrizB);
 
@@ -249,45 +239,64 @@ int main(int argc, char*argv[]) {
         fprintf(stderr,"Erro na leitura dos arquivos de matrizes fornecidos.");
     }
 
-
-    int M = 0;
-
-    printf("Entre com o número de threads desejado: ");
-    scanf("%d", & M);
-
-    //criarThreads(* matrizAux_B, * matrizAux_B, M);
-
     matrizC = (float *) malloc(sizeof(float) * matrizA->linhas * matrizB->colunas);
+    Matriz * matrizAuxConcorrente = malloc(sizeof (Matriz));
+    Matriz * matrizAuxSequencial = malloc(sizeof (Matriz));
 
 
     if (matrizC == NULL) {
         fprintf(stderr,"Erro ao alocar memória para a matriz C.");
     }
 
-    matrizC = produtoMatrizes(matrizA, matrizB);
-    escreveMatrizArquivo(matrizC,"matrizResultanteSeq", matrizA->linhas, matrizB->colunas);
+    int M = 0;
+    printf("Entre com o número de threads desejado: ");
+    scanf("%d", & M);
 
-    //DadosCsv dados;
-    //extrairCsv(dados);
+    criarThreads(* matrizA, * matrizB, M);
 
+    matrizAuxConcorrente->matriz = matrizC;
+    matrizAuxConcorrente->linhas = matrizA->linhas;
+    matrizAuxConcorrente->colunas = matrizB->colunas;
+    escreveMatrizArquivo(matrizAuxConcorrente,"matrizResultanteConcorrente");
 
+    float * matrizResultanteSequencial = malloc(sizeof (float) * matrizA->linhas * matrizB->colunas);
+    matrizResultanteSequencial = produtoMatrizes(matrizA, matrizB);
+    matrizAuxSequencial->matriz = matrizResultanteSequencial;
+    matrizAuxSequencial->linhas = matrizA->linhas;
+    matrizAuxSequencial->colunas = matrizB->colunas;
+    escreveMatrizArquivo(matrizAuxSequencial,"matrizResultanteSequencial");
+
+    //DadosCsv experimento;
+    //extrairCsv(experimento);
+
+    printf("Matriz Concorrente\n");
     for (int i = 0; i< matrizA->linhas; i++) {
         for (int j=0; j<matrizB->colunas; j++) {
             printf("%f ", matrizC[i*matrizB->colunas+j]);
         }
         printf("\n");
     }
+
+    printf("Matriz sequencial\n");
+     for (int i = 0; i< matrizA->linhas; i++) {
+         for (int j=0; j<matrizB->colunas; j++) {
+             printf("%f ", matrizC[i*matrizB->colunas+j]);
+         }
+         printf("\n");
+     }
+
     //finaliza o uso das variaveis
     fclose(arquivoMatrizA);
     fclose(arquivoMatrizB);
     free(matrizB);
     free(matrizA);
+    free(matrizAuxConcorrente);
+    free(matrizAuxSequencial);
+    free(matrizResultanteSequencial);
 
     if (matrizC != NULL) {
         free(matrizC);
     }
 
-
     return 0;
-
 }
