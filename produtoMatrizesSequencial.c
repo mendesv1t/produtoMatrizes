@@ -142,13 +142,11 @@ Matriz leMatrizArquivo(FILE * file) {
     return matriz;
 }
 
-
 void extraiTestesCsv(float tempoMedio, int sequencial, int linhas, int colunas) {
 
     float aceleracao;
     float eficiencia;
 }
-
 
 int main(int argc, char*argv[]) {
 

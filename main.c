@@ -10,10 +10,9 @@ float * matrizC = NULL;
 
 // estrutura auxiliar para montar resultados para um csv:
 typedef struct {
-    float aceleracao;
-    float eficiencia;
-    float mediaTempoExecucao;
-    int sequencial; // se for 0 é sequencial, se for 1 é concorrente.
+    double aceleracao;
+    double eficiencia;
+    double tempoExecucao;
     int linhasMatriz;
     int colunasMatriz;
     int qtdThreads;
@@ -36,7 +35,7 @@ typedef struct {
 } tArgs;
 
 //método para extrair resultados para análise em um csv, dada uma lista de experimentos
-void extrairCsv(Experimento * experimentos[], int qtd) {
+void extrairCsv(Experimento * experimentos, int qtd) {
 
     FILE * resultados;
     resultados = fopen("resultados.csv", "w+");
@@ -46,11 +45,11 @@ void extrairCsv(Experimento * experimentos[], int qtd) {
         return;
     }
     // fixa header do csv:
-    fprintf(resultados, "modo;aceleracao;eficiencia;tempoExecucao;linhasMatriz;colunasMatriz;qtdThreads\n");
+    fprintf(resultados, "aceleracao;eficiencia;tempoExecucao;linhasMatriz;colunasMatriz;qtdThreads\n");
     for (int i = 0; i<qtd; i++) {
         //escreve os experimento resultantes do experimento em uma linha:
-        fprintf(resultados,"%s;%f;%f;%f;%d;%d;%d\n", experimentos[i]->sequencial == 0 ? "sequencial" : "concorrente", experimentos[i]->aceleracao, experimentos[i]->eficiencia,
-                                                     experimentos[i]->mediaTempoExecucao, experimentos[i]->linhasMatriz, experimentos[i]->colunasMatriz, experimentos[i]->qtdThreads);
+        fprintf(resultados,"%f;%f;%f;%d;%d;%d\n", experimentos[i].aceleracao, experimentos[i].eficiencia,
+                                                     experimentos[i].tempoExecucao, experimentos[i].linhasMatriz, experimentos[i].colunasMatriz, experimentos[i].qtdThreads);
     }
     fclose(resultados);
 }
@@ -256,6 +255,22 @@ int main(int argc, char*argv[]) {
     }
 
     double inicio, fim, tempoTotal;
+//    Experimento * experimentos = malloc(sizeof (Experimento)*3);
+//    for (int i = 0; i<3; i++) {
+//        Experimento exp;
+//        GET_TIME(inicio);
+//        criarThreads(* matrizA, * matrizB, M);
+//        GET_TIME(fim);
+//        exp.tempoExecucao = fim - inicio;
+//        exp.aceleracao = 0.000000;
+//        exp.eficiencia = 0.000000;
+//        exp.linhasMatriz = matrizA->linhas;
+//        exp.colunasMatriz = matrizB->colunas;
+//        exp.qtdThreads = M;
+//        experimentos[i] = exp;
+//        printf("Tempo decorrido (Concorrente): %f segundos\nProcessamento de uma matriz de %d linhas e %d colunas\n", exp.tempoExecucao, matrizA->linhas, matrizB->colunas);
+//    }
+//    extrairCsv(experimentos,3);
 
     GET_TIME(inicio);
     criarThreads(* matrizA, * matrizB, M);
@@ -271,7 +286,6 @@ int main(int argc, char*argv[]) {
     matrizAuxConcorrente->colunas = matrizB->colunas;
     escreveMatrizArquivo(matrizAuxConcorrente,nomeArquivoSaida);
 
-
     //finaliza o uso das variaveis
     fclose(arquivoMatrizA);
     fclose(arquivoMatrizB);
@@ -279,6 +293,7 @@ int main(int argc, char*argv[]) {
     free(matrizB);
     free(matrizC);
     free(matrizAuxConcorrente);
+//    free(experimentos);
 
     return 0;
 }
