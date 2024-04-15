@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include "timer.h"
 
 // estrutura auxiliar para montar resultados para um csv:
 typedef struct {
@@ -59,8 +60,9 @@ float * produtoMatrizes(Matriz * matrizA, Matriz * matrizB) {
     }
 
     for (int i = 0; i < matrizA->linhas; i++) {
-        for (int k = 0; k < matrizA->colunas; k++) {
-            for (int j = 0; j < matrizB->colunas; j++) {
+        for (int j = 0; j < matrizB->colunas; j++) {
+            retorno[i * matrizB->colunas + j] = 0;
+            for (int k = 0; k < matrizA->colunas; k++) {
                 retorno[i * matrizB->colunas + j] += matrizA->matriz[i * matrizA->colunas + k] * matrizB->matriz[k * matrizB->colunas + j];
             }
         }
@@ -154,6 +156,18 @@ int main(int argc, char*argv[]) {
     Matriz * matrizA = malloc(sizeof(Matriz));
     Matriz * matrizB = malloc(sizeof(Matriz));
 
+    if (!matrizA) {
+        fprintf(stderr, "Erro ao alocar memória para a matriz A\n");
+        free(matrizA);
+        return 1;
+    }
+    if (!matrizB) {
+        fprintf(stderr, "Erro ao alocar memória para a matriz B\n");
+        free(matrizA);
+        free(matrizB);
+        return 2;
+    }
+
     // arquivos de entrada das matrizes:
     FILE * arquivoMatrizA;
     FILE * arquivoMatrizB;
@@ -161,7 +175,7 @@ int main(int argc, char*argv[]) {
     //recebe os argumentos de entrada
     if(argc < 3) {
         fprintf(stderr, "Digite: ./main <ArquivoMatrizA> <ArquivoMatrizB> <nomeArquivoSaida>\n");
-        return 1;
+        return 3;
     }
 
     //abre o arquivo para leitura binaria
@@ -178,16 +192,18 @@ int main(int argc, char*argv[]) {
 
     if (matrizSequencial == NULL) {
         fprintf(stderr,"Erro ao alocar memória para a matriz resultante.");
+        return 4;
     }
 
-    clock_t t_seq;
-    t_seq = clock();
+    double inicio, fim, tempoTotal;
 
+    GET_TIME(inicio);
     matrizSequencial->matriz = produtoMatrizes(matrizA, matrizB);
-    t_seq = clock() - t_seq;
+    GET_TIME(fim);
+    tempoTotal = fim - inicio;
 
     if (matrizSequencial->matriz != NULL) {
-        printf("Tempo decorrido (Sequencial): %f segundos\nProcessamento de uma matriz de %d linhas e %d colunas\n", (float)t_seq / CLOCKS_PER_SEC, matrizA->linhas, matrizB->colunas);
+        printf("Tempo decorrido (Sequencial): %f segundos\nProcessamento de uma matriz de %d linhas e %d colunas\n", tempoTotal, matrizA->linhas, matrizB->colunas);
         matrizSequencial->linhas = matrizA->linhas;
         matrizSequencial->colunas = matrizB->colunas;
         escreveMatrizArquivo(matrizSequencial,nomeArquivoSaida);

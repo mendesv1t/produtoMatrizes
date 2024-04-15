@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
-#include <time.h>
+#include "timer.h"
 
 // ------------------------- DECLARAÇOES AUXILIARES (métodos & variáveis globais) -------------------------
 
@@ -55,25 +55,6 @@ void extrairCsv(Experimento * experimentos[], int qtd) {
     fclose(resultados);
 }
 
-// método que realiza o produto de forma sequencial de matrizes de NxM dimensões:
-float * produtoMatrizes(Matriz * matrizA, Matriz * matrizB) {
-    float * retorno = malloc(sizeof (float)*matrizA->linhas*matrizB->colunas);
-    if (matrizA->colunas != matrizB->linhas) {
-        printf("Erro: número de colunas da matriz A não é igual ao número de linhas da matriz B.");
-        return NULL;
-    }
-
-    for (int i = 0; i < matrizA->linhas; i++) {
-        for (int j = 0; j < matrizB->colunas; j++) {
-            retorno[i * matrizB->colunas + j] = 0;
-            for (int k = 0; k < matrizA->colunas; k++) {
-                retorno[i * matrizB->colunas + j] += matrizA->matriz[i * matrizA->colunas + k] * matrizB->matriz[k * matrizB->colunas + j];
-            }
-        }
-    }
-    return retorno;
-}
-
 // com base nos códigos fornecidos, extraí a logica de escrever matriz em um arquivo para um método:
 void escreveMatrizArquivo( Matriz * matriz, char * nome) {
 
@@ -114,6 +95,7 @@ Matriz leMatrizArquivo(FILE * file) {
 
     if(!file) {
         fprintf(stderr, "Erro na abertura do arquivo\n");
+        return matriz;
     }
 
     dimensao = fread(&linhas, sizeof(int), 1, file);
@@ -130,6 +112,8 @@ Matriz leMatrizArquivo(FILE * file) {
 
     if(!matrizRetorno) {
         fprintf(stderr, "Erro de alocao da memoria da matriz de retorno\n");
+        free(matrizRetorno);
+        return matriz;
     }
 
     //carrega a matriz do arquivo, na matriz de retorno alocada:
@@ -137,6 +121,7 @@ Matriz leMatrizArquivo(FILE * file) {
 
     if(dimensao < tamanho) {
         fprintf(stderr, "Erro de leitura dos elementos da matriz\n");
+        return matriz;
     }
 
     matriz.matriz = matrizRetorno;
@@ -164,26 +149,14 @@ void * tarefa(void * arg) {
         fim = args->matrizA.linhas;
     }
 
-    if (args->matrizA.colunas != args->matrizB.linhas) {
-        printf("Erro: número de colunas da matriz A não é igual ao número de linhas da matriz B.");
-        return NULL;
-    }
-
-    for (int i = 0; i<args->matrizA.linhas; i++) {
-        for (int j = 0; j<args->matrizB.colunas; j++) {
-            matrizC[i * args->matrizB.colunas + j] = 0;
-        }
-    }
-
     for (int i = inicio; i < fim; i++) {
-        for (int k = 0; k < args->matrizA.colunas; k++) {
-            for (int j = 0; j < args->matrizB.colunas; j++) {
+        for (int j = 0; j < args->matrizB.colunas; j++) {
+            matrizC[i * args->matrizB.colunas + j] = 0;
+            for (int k = 0; k < args->matrizA.colunas; k++) {
                 matrizC[i * args->matrizB.colunas + j] += args->matrizA.matriz[i * args->matrizA.colunas + k] * args->matrizB.matriz[k * args->matrizB.colunas + j];
             }
         }
     }
-
-
 
     free(arg);
     pthread_exit(NULL);
@@ -195,6 +168,12 @@ void criarThreads(Matriz matrizA, Matriz matrizB, int M) {
     // recuperando o id das threads no sistema:
     pthread_t tid_sistema[M];
     int threads[M];
+
+
+    if (matrizA.colunas != matrizB.linhas) {
+        printf("Erro: número de colunas da matriz A não é igual ao número de linhas da matriz B.\n");
+        return;
+    }
 
     // criando M threads:
     for (int i = 0; i < M; i++) {
@@ -212,7 +191,7 @@ void criarThreads(Matriz matrizA, Matriz matrizB, int M) {
 
     }
 
-    for (int i = 0; i <= M; i++) {
+    for (int i = 0; i < M; i++) {
         pthread_join(tid_sistema[i],NULL);
     }
 
@@ -226,6 +205,18 @@ int main(int argc, char*argv[]) {
     Matriz * matrizA = malloc(sizeof(Matriz));
     Matriz * matrizB = malloc(sizeof(Matriz));
 
+    if (!matrizA) {
+        fprintf(stderr, "Erro ao alocar memória para a matriz A\n");
+        free(matrizA);
+        return 1;
+    }
+    if (!matrizB) {
+        fprintf(stderr, "Erro ao alocar memória para a matriz B\n");
+        free(matrizA);
+        free(matrizB);
+        return 2;
+    }
+
     // arquivos de entrada das matrizes:
     FILE * arquivoMatrizA;
     FILE * arquivoMatrizB;
@@ -233,7 +224,7 @@ int main(int argc, char*argv[]) {
     //recebe os argumentos de entrada
     if(argc < 3) {
         fprintf(stderr, "Digite: ./main <ArquivoMatrizA> <ArquivoMatrizB> <nomeArquivoSaida>\n");
-        return 1;
+        return 3;
     }
 
     //abre o arquivo para leitura binaria
@@ -251,6 +242,8 @@ int main(int argc, char*argv[]) {
 
     if (matrizC == NULL) {
         fprintf(stderr,"Erro ao alocar memória para a matriz C.");
+        free(matrizC);
+        return 4;
     }
 
     int M;
@@ -258,16 +251,20 @@ int main(int argc, char*argv[]) {
     scanf("%d", & M);
 
     if (!M) {
-        fprintf(stderr, "Erro ao ler número de threads desejado.");
+        fprintf(stderr, "Erro ao ler número de threads desejado.\n");
+        return 5;
     }
 
-    clock_t t_conc;
+    double inicio, fim, tempoTotal;
 
-    t_conc = clock();
+    GET_TIME(inicio);
     criarThreads(* matrizA, * matrizB, M);
 
-    t_conc = clock() - t_conc;
-    printf("Tempo decorrido (Concorrente): %f segundos\nProcessamento de uma matriz de %d linhas e %d colunas\n", (float)t_conc / CLOCKS_PER_SEC, matrizA->linhas, matrizB->colunas);
+    if (matrizC[0] != 0) {
+        GET_TIME(fim);
+        tempoTotal = fim - inicio;
+        printf("Tempo decorrido (Concorrente): %f segundos\nProcessamento de uma matriz de %d linhas e %d colunas\n", tempoTotal, matrizA->linhas, matrizB->colunas);
+    }
 
     matrizAuxConcorrente->matriz = matrizC;
     matrizAuxConcorrente->linhas = matrizA->linhas;
