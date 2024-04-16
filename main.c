@@ -13,9 +13,6 @@
 #endif
 // ------------------------- DECLARAÇOES AUXILIARES (métodos & variáveis globais) -------------------------
 
-// matriz resultante global do programa:
-float * matrizC = NULL;
-
 // estrutura auxiliar para montar resultados para um csv:
 typedef struct {
     double aceleracao;
@@ -38,6 +35,7 @@ typedef struct {
 typedef struct {
     Matriz matrizA;
     Matriz matrizB;
+    float * matrizC;
     int lote;
     int M;
     int id;
@@ -157,6 +155,12 @@ Matriz * leMatrizArquivo(FILE * file) {
 float * produtoMatrizes(Matriz * matrizA, Matriz * matrizB) {
     float * retorno = malloc(sizeof (float)*matrizA->linhas*matrizB->colunas);
 
+    if (retorno == NULL) {
+        fprintf(stderr,"Erro ao alocar memória para a matriz resultante.");
+        return NULL;
+    }
+
+
     if (matrizA->colunas != matrizB->linhas) {
         printf("Erro: número de colunas da matriz A não é igual ao número de linhas da matriz B.");
         return NULL;
@@ -221,9 +225,9 @@ void * tarefa(void * arg) {
 
     for (int i = inicio; i < fim; i++) {
         for (int j = 0; j < args->matrizB.colunas; j++) {
-            matrizC[i * args->matrizB.colunas + j] = 0;
+            args->matrizC[i * args->matrizB.colunas + j] = 0;
             for (int k = 0; k < args->matrizA.colunas; k++) {
-                matrizC[i * args->matrizB.colunas + j] += args->matrizA.matriz[i * args->matrizA.colunas + k] * args->matrizB.matriz[k * args->matrizB.colunas + j];
+                args->matrizC[i * args->matrizB.colunas + j] += args->matrizA.matriz[i * args->matrizA.colunas + k] * args->matrizB.matriz[k * args->matrizB.colunas + j];
             }
         }
     }
@@ -233,7 +237,7 @@ void * tarefa(void * arg) {
 }
 
 // criação de threads:
-void criarThreads(Matriz matrizA, Matriz matrizB, int M) {
+void criarThreads(Matriz matrizA, Matriz matrizB, float * matrizC, int M) {
 
     // recuperando o id das threads no sistema:
     pthread_t tid_sistema[M];
@@ -249,6 +253,7 @@ void criarThreads(Matriz matrizA, Matriz matrizB, int M) {
         args->id = i;
         args->matrizA = matrizA;
         args->matrizB = matrizB;
+        args->matrizC = matrizC;
         args->M = M;
         args->lote = matrizA.linhas/M;
       if (pthread_create(&tid_sistema[i], NULL, tarefa, args)) {
@@ -267,7 +272,7 @@ void criarThreads(Matriz matrizA, Matriz matrizB, int M) {
 // método para realizar 3 processamentos do produto de duas matrizes, onde,
 // dada uma quantidade M de threads, realiza produto sequencial e em seguida o concorrente 3 vezes;
 // A partir disso, extrai a aceleração e eficiencia do uso das threads para um arquivo csv.
-int geraResultados(Matriz * matrizA, Matriz * matrizB, int M) {
+int geraResultados(Matriz * matrizA, Matriz * matrizB,float * matrizC, int M) {
 
     double inicio, fim;
     double tempoSequencial = produtoMatrizesSequencial(matrizA, matrizB, "matrizSeq");
@@ -277,7 +282,7 @@ int geraResultados(Matriz * matrizA, Matriz * matrizB, int M) {
     for (int i = 0; i<3; i++) {
 
         GET_TIME(inicio);
-        criarThreads(* matrizA, * matrizB, M);
+        criarThreads(* matrizA, * matrizB, matrizC, M);
         GET_TIME(fim);
         //extrai tempo médio de processamento
         tempoMedioConcorrente += (fim - inicio)/3;
@@ -337,14 +342,20 @@ int main(int argc, char*argv[]) {
     matrizA = leMatrizArquivo(arquivoMatrizA);
     matrizB = leMatrizArquivo(arquivoMatrizB);
 
+    float * matrizC;
     matrizC = (float *) malloc(sizeof(float) * matrizA->linhas * matrizB->colunas);
     Matriz * matrizAuxConcorrente = malloc(sizeof (Matriz));
 
+    if (matrizAuxConcorrente == NULL) {
+        fprintf(stderr,"Erro ao alocar memória para a matriz C.");
+        free(matrizC);
+        return 4;
+    }
 
     if (matrizC == NULL) {
         fprintf(stderr,"Erro ao alocar memória para a matriz C.");
         free(matrizC);
-        return 4;
+        return 5;
     }
 
     int M;
@@ -353,15 +364,15 @@ int main(int argc, char*argv[]) {
 
     if (!M) {
         fprintf(stderr, "Erro ao ler número de threads desejado.\n");
-        return 5;
+        return 6;
     }
 
 #if GERAR_RESULTADOS == ON
-    geraResultados(matrizA, matrizB, M);
+    geraResultados(matrizA, matrizB, matrizC, M);
 #else
     double inicio, fim, tempoTotal;
     GET_TIME(inicio);
-    criarThreads(* matrizA, * matrizB, M);
+    criarThreads(* matrizA, * matrizB, matrizC, M);
 
     if (matrizC[0] != 0) {
         GET_TIME(fim);
