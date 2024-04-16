@@ -24,6 +24,7 @@ typedef struct {
     int linhasMatriz;
     int colunasMatriz;
     int qtdThreads;
+    double tempoSequencial;
 } Experimento;
 
 // estrutura auxiliar para leitura e montagem de matrizes:
@@ -50,15 +51,15 @@ void extrairCsv(Experimento * experimento, char * nomeArquivo) {
 
     if (!resultados) {
         resultados = fopen(nomeArquivo, "a");
-        fprintf(resultados, "aceleracao;eficiencia;tempoExecucao;linhasMatriz;colunasMatriz;qtdThreads\n");
+        fprintf(resultados, "aceleracao;eficiencia;tempoExecucao;linhasMatriz;colunasMatriz;qtdThreads;tempoSequencial\n");
         //escreve os experimento resultantes do experimento em uma linha:
-        fprintf(resultados,"%f;%f;%f;%d;%d;%d\n", experimento->aceleracao, experimento->eficiencia,
-                    experimento->tempoExecucao, experimento->linhasMatriz, experimento->colunasMatriz, experimento->qtdThreads);
+        fprintf(resultados,"%f;%f;%f;%d;%d;%d;%f\n", experimento->aceleracao, experimento->eficiencia,
+                    experimento->tempoExecucao, experimento->linhasMatriz, experimento->colunasMatriz, experimento->qtdThreads, experimento->tempoSequencial);
     } else {
         resultados = fopen(nomeArquivo, "a");
         //escreve os experimento resultantes do experimento em uma linha:
-        fprintf(resultados,"%f;%f;%f;%d;%d;%d\n", experimento->aceleracao, experimento->eficiencia,
-                    experimento->tempoExecucao, experimento->linhasMatriz, experimento->colunasMatriz, experimento->qtdThreads);
+        fprintf(resultados,"%f;%f;%f;%d;%d;%d;%f\n", experimento->aceleracao, experimento->eficiencia,
+                    experimento->tempoExecucao, experimento->linhasMatriz, experimento->colunasMatriz, experimento->qtdThreads, experimento->tempoSequencial);
         }
 
     if (!resultados) {
@@ -290,6 +291,7 @@ int geraResultados(Matriz * matrizA, Matriz * matrizB, int M) {
     exp->linhasMatriz = matrizA->linhas;
     exp->colunasMatriz = matrizB->colunas;
     exp->qtdThreads = M;
+    exp->tempoSequencial = tempoSequencial;
     extrairCsv(exp, "tempoConcorrente.csv");
     free(exp);
 
