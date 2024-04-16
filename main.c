@@ -2,7 +2,15 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include "timer.h"
-//#define TESTE
+
+#define ON 1
+#define OFF 0
+
+#ifndef GERAR_RESULTADOS
+
+#define GERAR_RESULTADOS OFF
+
+#endif
 // ------------------------- DECLARAÇOES AUXILIARES (métodos & variáveis globais) -------------------------
 
 // matriz resultante global do programa:
@@ -91,18 +99,18 @@ void escreveMatrizArquivo( Matriz * matriz, char * nome) {
 }
 
 // método que lê um arquivo e devolve uma estrutura que contém uma matriz e experimento relevantes sobre ela:
-Matriz leMatrizArquivo(FILE * file) {
+Matriz * leMatrizArquivo(FILE * file) {
 
     int linhas;
     int colunas;
     int dimensao;
     float * matrizRetorno;
     int tamanho;
-    Matriz matriz;
+    Matriz * matriz = malloc(sizeof (Matriz));
 
     if(!file) {
         fprintf(stderr, "Erro na abertura do arquivo\n");
-        return matriz;
+        return NULL;
     }
 
     dimensao = fread(&linhas, sizeof(int), 1, file);
@@ -120,7 +128,7 @@ Matriz leMatrizArquivo(FILE * file) {
     if(!matrizRetorno) {
         fprintf(stderr, "Erro de alocao da memoria da matriz de retorno\n");
         free(matrizRetorno);
-        return matriz;
+        return NULL;
     }
 
     //carrega a matriz do arquivo, na matriz de retorno alocada:
@@ -128,12 +136,17 @@ Matriz leMatrizArquivo(FILE * file) {
 
     if(dimensao < tamanho) {
         fprintf(stderr, "Erro de leitura dos elementos da matriz\n");
-        return matriz;
+        return NULL;
     }
 
-    matriz.matriz = matrizRetorno;
-    matriz.linhas = linhas;
-    matriz.colunas = colunas;
+    if (!matriz) {
+        fprintf(stderr, "Erro de leitura dos elementos da matriz\n");
+        return NULL;
+    }
+
+    matriz->matriz = matrizRetorno;
+    matriz->linhas = linhas;
+    matriz->colunas = colunas;
 
     return matriz;
 }
@@ -223,8 +236,6 @@ void criarThreads(Matriz matrizA, Matriz matrizB, int M) {
 
     // recuperando o id das threads no sistema:
     pthread_t tid_sistema[M];
-    int threads[M];
-
 
     if (matrizA.colunas != matrizB.linhas) {
         printf("Erro: número de colunas da matriz A não é igual ao número de linhas da matriz B.\n");
@@ -234,7 +245,6 @@ void criarThreads(Matriz matrizA, Matriz matrizB, int M) {
     // criando M threads:
     for (int i = 0; i < M; i++) {
         tArgs * args = malloc(sizeof (tArgs));
-        threads[i] = i;
         args->id = i;
         args->matrizA = matrizA;
         args->matrizB = matrizB;
@@ -268,7 +278,6 @@ int geraResultados(Matriz * matrizA, Matriz * matrizB, int M) {
         GET_TIME(inicio);
         criarThreads(* matrizA, * matrizB, M);
         GET_TIME(fim);
-
         //extrai tempo médio de processamento
         tempoMedioConcorrente += (fim - inicio)/3;
     }
@@ -323,8 +332,8 @@ int main(int argc, char*argv[]) {
     char * nomeArquivoSaida = argv[3];
 
     // retorna ponteiros que apontam para as matrizes lidas nos arquivos de entrada
-    * matrizA = leMatrizArquivo(arquivoMatrizA);
-    * matrizB = leMatrizArquivo(arquivoMatrizB);
+    matrizA = leMatrizArquivo(arquivoMatrizA);
+    matrizB = leMatrizArquivo(arquivoMatrizB);
 
     matrizC = (float *) malloc(sizeof(float) * matrizA->linhas * matrizB->colunas);
     Matriz * matrizAuxConcorrente = malloc(sizeof (Matriz));
@@ -345,7 +354,7 @@ int main(int argc, char*argv[]) {
         return 5;
     }
 
-#ifdef TESTE
+#if GERAR_RESULTADOS == ON
     geraResultados(matrizA, matrizB, M);
 #else
     double inicio, fim, tempoTotal;

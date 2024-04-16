@@ -21,24 +21,86 @@ typedef struct {
     int linhas;
 } Matriz;
 
-//método para extrair resultados para análise em um csv, dada uma lista de experimentos
-void extrairCsv(Experimento * experimentos[], int qtd) {
 
-    FILE * resultados;
-    resultados = fopen("resultados.csv", "w+");
+// método que lê um arquivo e devolve uma estrutura que contém uma matriz e experimento relevantes sobre ela:
+Matriz * leMatrizArquivo(FILE * file) {
 
-    if (!resultados) {
-        fprintf(stderr, "Erro ao criar arquivo csv\n");
+    int linhas;
+    int colunas;
+    int dimensao;
+    float * matrizRetorno;
+    int tamanho;
+    Matriz * matriz = malloc(sizeof (Matriz));
+
+    if(!file) {
+        fprintf(stderr, "Erro na abertura do arquivo\n");
+        return NULL;
+    }
+
+    dimensao = fread(&linhas, sizeof(int), 1, file);
+    dimensao = fread(&colunas, sizeof(int), 1, file);
+    tamanho = linhas*colunas;
+
+    if(!dimensao) {
+        fprintf(stderr, "Erro de leitura das dimensoes das matrizes no arquivo \n");
+    }
+
+
+    //aloca memoria para a matriz de retorno
+    matrizRetorno = (float*) malloc(sizeof(float) * tamanho);
+
+    if(!matrizRetorno) {
+        fprintf(stderr, "Erro de alocao da memoria da matriz de retorno\n");
+        free(matrizRetorno);
+        return NULL;
+    }
+
+    //carrega a matriz do arquivo, na matriz de retorno alocada:
+    dimensao = fread(matrizRetorno, sizeof(float), tamanho, file);
+
+    if(dimensao < tamanho) {
+        fprintf(stderr, "Erro de leitura dos elementos da matriz\n");
+        return NULL;
+    }
+
+    if (!matriz) {
+        fprintf(stderr, "Erro de leitura dos elementos da matriz\n");
+        return NULL;
+    }
+
+    matriz->matriz = matrizRetorno;
+    matriz->linhas = linhas;
+    matriz->colunas = colunas;
+
+    return matriz;
+}
+
+// com base nos códigos fornecidos, extraí a logica de escrever matriz em um arquivo para um método:
+void escreveMatrizArquivo( Matriz * matriz, char * nome) {
+
+    size_t ret;
+    long long int tam = matriz->linhas*matriz->colunas;
+
+    //abre o arquivo para escrita binaria
+    FILE * matrizArquivo = fopen(nome, "wb");
+    if(!matrizArquivo) {
+        fprintf(stderr, "Erro de abertura do arquivo\n");
         return;
     }
-    // fixa header do csv:
-    fprintf(resultados, "modo;aceleracao;eficiencia;tempoExecucao;linhasMatriz;colunasMatriz;qtdThreads\n");
-    for (int i = 0; i<qtd; i++) {
-        //escreve os experimento resultantes do experimento em uma linha:
-        fprintf(resultados,"%s;%f;%f;%f;%d;%d;%d\n", experimentos[i]->sequencial == 0 ? "sequencial" : "concorrente", experimentos[i]->aceleracao, experimentos[i]->eficiencia,
-                experimentos[i]->mediaTempoExecucao, experimentos[i]->linhasMatriz, experimentos[i]->colunasMatriz, experimentos[i]->qtdThreads);
+    //escreve numero de linhas e de colunas
+    ret = fwrite(&matriz->linhas, sizeof(int), 1, matrizArquivo);
+    ret = fwrite(&matriz->colunas, sizeof(int), 1, matrizArquivo);
+
+    //escreve os elementos da matriz
+    ret = fwrite(matriz->matriz, sizeof(float), tam, matrizArquivo);
+
+    if(ret < tam) {
+        fprintf(stderr, "Erro de escrita no  arquivo\n");
+        return;
     }
-    fclose(resultados);
+
+    //finaliza o uso das variaveis
+    fclose(matrizArquivo);
 }
 
 // método que realiza o produto de forma sequencial de matrizes de NxM dimensões:
@@ -96,8 +158,8 @@ int main(int argc, char*argv[]) {
     char * nomeArquivoSaida = argv[3];
 
     // retorna ponteiros que apontam para as matrizes lidas nos arquivos de entrada
-    * matrizA = leMatrizArquivo(arquivoMatrizA);
-    * matrizB = leMatrizArquivo(arquivoMatrizB);
+    matrizA = leMatrizArquivo(arquivoMatrizA);
+    matrizB = leMatrizArquivo(arquivoMatrizB);
 
     Matriz * matrizSequencial = malloc(sizeof (Matriz));
 
