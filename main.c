@@ -15,12 +15,12 @@
 
 // estrutura auxiliar para montar resultados para um csv:
 typedef struct {
-    double aceleracao;
-    double eficiencia;
-    double tempoExecucao;
     int linhasMatriz;
     int colunasMatriz;
     int qtdThreads;
+    double aceleracao;
+    double eficiencia;
+    double tempoExecucao;
     double tempoSequencial;
 } Experimento;
 
