@@ -10,3 +10,5 @@ Também há arquivos auxiliares disponibilizados no laboratório, como o ```gera
 - Para executar o programa concorrente principal rode ```gcc -o main main.c -lpthread -Wall -DGERAR_CSV=OFF``` em seguida, rode ```./main. <nomeArquivoMatrizA> <nomeArquivoMatrizB> <nomeArquivoResultante>```, onde os dois primeiros argumentos são matrizes geradas em um arquivo binário e o terceiro é o nome do arquivo binário em que deseja armazenar o resultado.
 - Ao compilar, em caso de ```-DGERAR_CSV=ON``` o programa irá calcular o tempo sequencial, tempo concorrente, aceleração, eficiência, e por fim montar um csv para auxiliar na criação dos gráficos.
 - Para executar a versão sequencial separada da concorrente, basta compilar a versão sequencial com ```gcc -o produtoMatrizesSequencial produtoMatrizesSequencial.c``` e rode ```./main. <nomeArquivoMatrizA> <nomeArquivoMatrizB> <nomeArquivoResultante>```
+
+Após extraídos os resultados, montei a tabela de aceleração e eficiência via google sheets, onde pode ser visualizado [clicando aqui](https://docs.google.com/spreadsheets/d/1I2mPtZy2nrUx5JH-2edLzWk7lI-ODrL44sbVyXrHYHs/edit#gid=1618328427)
