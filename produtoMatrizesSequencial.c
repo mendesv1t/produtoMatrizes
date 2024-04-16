@@ -3,16 +3,6 @@
 #include <time.h>
 #include "timer.h"
 
-// estrutura auxiliar para montar resultados para um csv:
-typedef struct {
-    float aceleracao;
-    float eficiencia;
-    float mediaTempoExecucao;
-    int sequencial; // se for 0 é sequencial, se for 1 é concorrente.
-    int linhasMatriz;
-    int colunasMatriz;
-    int qtdThreads;
-} Experimento;
 
 // estrutura auxiliar para leitura e montagem de matrizes:
 typedef struct {
