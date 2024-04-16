@@ -35,22 +35,30 @@ typedef struct {
 } tArgs;
 
 //método para extrair resultados para análise em um csv, dada uma lista de experimentos
-void extrairCsv(Experimento * experimentos, int qtd) {
+void extrairCsv(Experimento * experimento, char * nomeArquivo) {
 
     FILE * resultados;
-    resultados = fopen("resultados.csv", "w+");
+    resultados = fopen(nomeArquivo, "r");
+
+    if (!resultados) {
+        resultados = fopen(nomeArquivo, "a");
+        fprintf(resultados, "aceleracao;eficiencia;tempoExecucao;linhasMatriz;colunasMatriz;qtdThreads\n");
+        //escreve os experimento resultantes do experimento em uma linha:
+        fprintf(resultados,"%f;%f;%f;%d;%d;%d\n", experimento->aceleracao, experimento->eficiencia,
+                    experimento->tempoExecucao, experimento->linhasMatriz, experimento->colunasMatriz, experimento->qtdThreads);
+    } else {
+        resultados = fopen(nomeArquivo, "a");
+        //escreve os experimento resultantes do experimento em uma linha:
+        fprintf(resultados,"%f;%f;%f;%d;%d;%d\n", experimento->aceleracao, experimento->eficiencia,
+                    experimento->tempoExecucao, experimento->linhasMatriz, experimento->colunasMatriz, experimento->qtdThreads);
+        }
 
     if (!resultados) {
         fprintf(stderr, "Erro ao criar arquivo csv\n");
         return;
     }
     // fixa header do csv:
-    fprintf(resultados, "aceleracao;eficiencia;tempoExecucao;linhasMatriz;colunasMatriz;qtdThreads\n");
-    for (int i = 0; i<qtd; i++) {
-        //escreve os experimento resultantes do experimento em uma linha:
-        fprintf(resultados,"%f;%f;%f;%d;%d;%d\n", experimentos[i].aceleracao, experimentos[i].eficiencia,
-                                                     experimentos[i].tempoExecucao, experimentos[i].linhasMatriz, experimentos[i].colunasMatriz, experimentos[i].qtdThreads);
-    }
+
     fclose(resultados);
 }
 
@@ -130,6 +138,55 @@ Matriz leMatrizArquivo(FILE * file) {
     return matriz;
 }
 
+
+// método que realiza o produto de forma sequencial de matrizes de NxM dimensões:
+float * produtoMatrizes(Matriz * matrizA, Matriz * matrizB) {
+    float * retorno = malloc(sizeof (float)*matrizA->linhas*matrizB->colunas);
+
+    if (matrizA->colunas != matrizB->linhas) {
+        printf("Erro: número de colunas da matriz A não é igual ao número de linhas da matriz B.");
+        return NULL;
+    }
+
+    for (int i = 0; i < matrizA->linhas; i++) {
+        for (int j = 0; j < matrizB->colunas; j++) {
+            retorno[i * matrizB->colunas + j] = 0;
+            for (int k = 0; k < matrizA->colunas; k++) {
+                retorno[i * matrizB->colunas + j] += matrizA->matriz[i * matrizA->colunas + k] * matrizB->matriz[k * matrizB->colunas + j];
+            }
+        }
+    }
+    return retorno;
+}
+
+double produtoMatrizesSequencial(Matriz * matrizA, Matriz * matrizB, char * nomeArquivoSaida) {
+
+    Matriz * matrizSequencial = malloc(sizeof (Matriz));
+
+    if (matrizSequencial == NULL) {
+        fprintf(stderr,"Erro ao alocar memória para a matriz resultante.");
+        return 4;
+    }
+
+    double inicio, fim, tempoTotal;
+
+    GET_TIME(inicio);
+    matrizSequencial->matriz = produtoMatrizes(matrizA, matrizB);
+    GET_TIME(fim);
+    tempoTotal = fim - inicio;
+
+    if (matrizSequencial->matriz != NULL) {
+        printf("Tempo decorrido (Sequencial): %f segundos\nProcessamento de uma matriz de %d linhas e %d colunas\n", tempoTotal, matrizA->linhas, matrizB->colunas);
+        matrizSequencial->linhas = matrizA->linhas;
+        matrizSequencial->colunas = matrizB->colunas;
+        escreveMatrizArquivo(matrizSequencial,nomeArquivoSaida);
+    }
+
+    free(matrizSequencial);
+
+    return tempoTotal;
+}
+
 // ------------------------- THREADS (criação de threads & tarefa das threads) -------------------------
 
 // tarefa designada as threads:
@@ -196,6 +253,36 @@ void criarThreads(Matriz matrizA, Matriz matrizB, int M) {
 
 }
 
+int geraResultados(Matriz * matrizA, Matriz * matrizB, int M) {
+
+    double inicio, fim;
+    double tempoSequencial = produtoMatrizesSequencial(matrizA, matrizB, "matrizSeq");
+    double tempoMedioConcorrente = 0;
+    int numNucleos = 16;
+
+    for (int i = 0; i<3; i++) {
+
+        GET_TIME(inicio);
+        criarThreads(* matrizA, * matrizB, M);
+        GET_TIME(fim);
+
+        //extrai tempo médio de processamento
+        tempoMedioConcorrente += (fim - inicio)/3;
+    }
+    printf("Tempo médio decorrido (Concorrente): %f segundos\nProcessamento de uma matriz de %d linhas e %d colunas\n", tempoMedioConcorrente, matrizA->linhas, matrizB->colunas);
+
+    Experimento * exp = malloc(sizeof (Experimento));
+    exp->tempoExecucao = tempoMedioConcorrente;
+    exp->aceleracao = tempoSequencial/exp->tempoExecucao;
+    exp->eficiencia = exp->aceleracao/numNucleos;
+    exp->linhasMatriz = matrizA->linhas;
+    exp->colunasMatriz = matrizB->colunas;
+    exp->qtdThreads = M;
+    extrairCsv(exp, "tempoConcorrente.csv");
+    free(exp);
+    return 0;
+}
+
 // ------------------------- PROGRAMA PRINCIPAL -------------------------
 
 int main(int argc, char*argv[]) {
@@ -255,22 +342,6 @@ int main(int argc, char*argv[]) {
     }
 
     double inicio, fim, tempoTotal;
-//    Experimento * experimentos = malloc(sizeof (Experimento)*3);
-//    for (int i = 0; i<3; i++) {
-//        Experimento exp;
-//        GET_TIME(inicio);
-//        criarThreads(* matrizA, * matrizB, M);
-//        GET_TIME(fim);
-//        exp.tempoExecucao = fim - inicio;
-//        exp.aceleracao = 0.000000;
-//        exp.eficiencia = 0.000000;
-//        exp.linhasMatriz = matrizA->linhas;
-//        exp.colunasMatriz = matrizB->colunas;
-//        exp.qtdThreads = M;
-//        experimentos[i] = exp;
-//        printf("Tempo decorrido (Concorrente): %f segundos\nProcessamento de uma matriz de %d linhas e %d colunas\n", exp.tempoExecucao, matrizA->linhas, matrizB->colunas);
-//    }
-//    extrairCsv(experimentos,3);
 
     GET_TIME(inicio);
     criarThreads(* matrizA, * matrizB, M);
@@ -293,7 +364,6 @@ int main(int argc, char*argv[]) {
     free(matrizB);
     free(matrizC);
     free(matrizAuxConcorrente);
-//    free(experimentos);
 
     return 0;
 }
