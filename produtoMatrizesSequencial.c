@@ -21,15 +21,6 @@ typedef struct {
     int linhas;
 } Matriz;
 
-// estrutura auxiliar para enviar experimento as threads:
-typedef struct {
-    Matriz matrizA;
-    Matriz matrizB;
-    int lote;
-    int M;
-    int id;
-} tArgs;
-
 //método para extrair resultados para análise em um csv, dada uma lista de experimentos
 void extrairCsv(Experimento * experimentos[], int qtd) {
 
@@ -70,83 +61,6 @@ float * produtoMatrizes(Matriz * matrizA, Matriz * matrizB) {
     return retorno;
 }
 
-// com base nos códigos fornecidos, extraí a logica de escrever matriz em um arquivo para um método:
-void escreveMatrizArquivo( Matriz * matriz, char * nomeArquivo) {
-
-    size_t ret;
-    long long int tam = matriz->linhas*matriz->colunas;
-
-    //abre o arquivo para escrita binaria
-    FILE * matrizArquivo = fopen(nomeArquivo, "wb");
-    if(!matrizArquivo) {
-        fprintf(stderr, "Erro de abertura do arquivo\n");
-        return;
-    }
-    //escreve numero de linhas e de colunas
-    ret = fwrite(&matriz->linhas, sizeof(int), 1, matrizArquivo);
-    ret = fwrite(&matriz->colunas, sizeof(int), 1, matrizArquivo);
-
-    //escreve os elementos da matriz
-    ret = fwrite(matriz->matriz, sizeof(float), tam, matrizArquivo);
-
-    if(ret < tam) {
-        fprintf(stderr, "Erro de escrita no  arquivo\n");
-        return;
-    }
-
-    //finaliza o uso das variaveis
-    fclose(matrizArquivo);
-}
-
-// método que lê um arquivo e devolve uma estrutura que contém uma matriz e experimento relevantes sobre ela:
-Matriz leMatrizArquivo(FILE * file) {
-
-    int linhas;
-    int colunas;
-    int dimensao;
-    float * matrizRetorno;
-    int tamanho;
-    Matriz matriz;
-
-    if(!file) {
-        fprintf(stderr, "Erro na abertura do arquivo\n");
-    }
-
-    dimensao = fread(&linhas, sizeof(int), 1, file);
-    dimensao = fread(&colunas, sizeof(int), 1, file);
-    tamanho = linhas*colunas;
-
-    if(!dimensao) {
-        fprintf(stderr, "Erro de leitura das dimensoes das matrizes no arquivo \n");
-    }
-
-
-    //aloca memoria para a matriz de retorno
-    matrizRetorno = (float*) malloc(sizeof(float) * tamanho);
-
-    if(!matrizRetorno) {
-        fprintf(stderr, "Erro de alocao da memoria da matriz de retorno\n");
-    }
-
-    //carrega a matriz do arquivo, na matriz de retorno alocada:
-    dimensao = fread(matrizRetorno, sizeof(float), tamanho, file);
-
-    if(dimensao < tamanho) {
-        fprintf(stderr, "Erro de leitura dos elementos da matriz\n");
-    }
-
-    matriz.matriz = matrizRetorno;
-    matriz.linhas = linhas;
-    matriz.colunas = colunas;
-
-    return matriz;
-}
-
-void extraiTestesCsv(float tempoMedio, int sequencial, int linhas, int colunas) {
-
-    float aceleracao;
-    float eficiencia;
-}
 
 int main(int argc, char*argv[]) {
 

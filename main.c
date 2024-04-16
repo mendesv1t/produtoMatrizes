@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include "timer.h"
-
+//#define TESTE
 // ------------------------- DECLARAÇOES AUXILIARES (métodos & variáveis globais) -------------------------
 
 // matriz resultante global do programa:
@@ -253,6 +253,9 @@ void criarThreads(Matriz matrizA, Matriz matrizB, int M) {
 
 }
 
+// método para realizar 3 processamentos do produto de duas matrizes, onde,
+// dada uma quantidade M de threads, realiza produto sequencial e em seguida o concorrente 3 vezes;
+// A partir disso, extrai a aceleração e eficiencia do uso das threads para um arquivo csv.
 int geraResultados(Matriz * matrizA, Matriz * matrizB, int M) {
 
     double inicio, fim;
@@ -280,6 +283,7 @@ int geraResultados(Matriz * matrizA, Matriz * matrizB, int M) {
     exp->qtdThreads = M;
     extrairCsv(exp, "tempoConcorrente.csv");
     free(exp);
+
     return 0;
 }
 
@@ -341,8 +345,10 @@ int main(int argc, char*argv[]) {
         return 5;
     }
 
+#ifdef TESTE
+    geraResultados(matrizA, matrizB, M);
+#else
     double inicio, fim, tempoTotal;
-
     GET_TIME(inicio);
     criarThreads(* matrizA, * matrizB, M);
 
@@ -351,6 +357,7 @@ int main(int argc, char*argv[]) {
         tempoTotal = fim - inicio;
         printf("Tempo decorrido (Concorrente): %f segundos\nProcessamento de uma matriz de %d linhas e %d colunas\n", tempoTotal, matrizA->linhas, matrizB->colunas);
     }
+#endif
 
     matrizAuxConcorrente->matriz = matrizC;
     matrizAuxConcorrente->linhas = matrizA->linhas;
